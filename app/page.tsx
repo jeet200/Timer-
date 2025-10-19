@@ -4,11 +4,29 @@ import { useState, useEffect } from "react";
 
 type TimerMode = "focus" | "short-break" | "long-break";
 
+type DailyTask = {
+  id: string;
+  name: string;
+  targetMinutes: number;
+  completedMinutes: number;
+};
+
 const DEFAULT_DURATIONS: Record<TimerMode, number> = {
   focus: 25 * 60,
   "short-break": 5 * 60,
   "long-break": 15 * 60,
 };
+
+const DEFAULT_TASKS: DailyTask[] = [
+  { id: "learning", name: "Learning", targetMinutes: 240, completedMinutes: 0 },
+  {
+    id: "coding",
+    name: "Python Coding / DSA",
+    targetMinutes: 180,
+    completedMinutes: 0,
+  },
+  { id: "aptitude", name: "Aptitude", targetMinutes: 60, completedMinutes: 0 },
+];
 
 export default function PomodoroTimer() {
   const [durations, setDurations] =
@@ -21,6 +39,9 @@ export default function PomodoroTimer() {
   const [timeLeft, setTimeLeft] = useState(durations.focus);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+
+  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>(DEFAULT_TASKS);
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("learning");
 
   useEffect(() => {
     setTimeLeft(durations[mode]);
@@ -35,6 +56,18 @@ export default function PomodoroTimer() {
           if (prev <= 1) {
             setIsRunning(false);
             setIsComplete(true);
+            setDailyTasks((prevTasks) =>
+              prevTasks.map((task) =>
+                task.id === selectedTaskId
+                  ? {
+                      ...task,
+                      completedMinutes:
+                        task.completedMinutes +
+                        Math.floor(durations[mode] / 60),
+                    }
+                  : task
+              )
+            );
             return 0;
           }
           return prev - 1;
@@ -43,7 +76,7 @@ export default function PomodoroTimer() {
     }
 
     return () => clearInterval(interval);
-  }, [isRunning, timeLeft]);
+  }, [isRunning, timeLeft, durations, mode, selectedTaskId]);
 
   const handleModeChange = (newMode: TimerMode) => {
     setMode(newMode);
@@ -87,12 +120,22 @@ export default function PomodoroTimer() {
     }));
   };
 
+  const handleResetDailyTasks = () => {
+    setDailyTasks(DEFAULT_TASKS);
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs
       .toString()
       .padStart(2, "0")}`;
+  };
+
+  const formatMinutes = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
   const getModeLabel = (m: TimerMode) => {
@@ -140,115 +183,178 @@ export default function PomodoroTimer() {
         ></div>
       </div>
 
-      <div className="relative z-10 w-full max-w-2xl">
-        <div className="text-center mb-16">
+      <div className="relative z-10 w-full max-w-4xl">
+        <div className="text-center mb-12">
           <h1 className="text-7xl md:text-8xl font-black tracking-tighter mb-4 bg-gradient-to-r from-blue-400 via-purple-400 to-blue-400 bg-clip-text text-transparent">
-            Time Dilation
+            Time dilation
           </h1>
           <div className="h-1 w-24 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
         </div>
 
-        <div className="flex gap-4 mb-16 justify-center flex-wrap">
-          {(["focus", "short-break", "long-break"] as TimerMode[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => handleModeChange(m)}
-              className={`px-8 py-3 rounded-full font-bold text-sm uppercase tracking-wider transition-all duration-300 ${
-                mode === m
-                  ? `${getModeColor(m).bg} text-white shadow-2xl scale-105`
-                  : "bg-white/10 text-white/60 hover:text-white/80 hover:bg-white/20 backdrop-blur-sm border border-white/20"
-              }`}
-            >
-              {getModeLabel(m)}
-            </button>
-          ))}
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+          {/* Timer Section */}
+          <div className="lg:col-span-2">
+            <div className="flex gap-4 mb-12 justify-center flex-wrap">
+              {(["focus", "short-break", "long-break"] as TimerMode[]).map(
+                (m) => (
+                  <button
+                    key={m}
+                    onClick={() => handleModeChange(m)}
+                    className={`px-8 py-3 rounded-full font-bold text-sm uppercase tracking-wider transition-all duration-300 ${
+                      mode === m
+                        ? `${
+                            getModeColor(m).bg
+                          } text-white shadow-2xl scale-105`
+                        : "bg-white/10 text-white/60 hover:text-white/80 hover:bg-white/20 backdrop-blur-sm border border-white/20"
+                    }`}
+                  >
+                    {getModeLabel(m)}
+                  </button>
+                )
+              )}
+            </div>
 
-        <div className="mb-16">
-          {/* Progress indicator */}
-          <div className="mb-8 flex justify-center">
-            <div className="relative w-80 h-80 rounded-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl">
-              {/* Progress ring */}
-              <svg
-                className="absolute inset-0 w-full h-full"
-                style={{ transform: "rotate(-90deg)" }}
-              >
-                <circle
-                  cx="160"
-                  cy="160"
-                  r="150"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.1)"
-                  strokeWidth="8"
-                />
-                <circle
-                  cx="160"
-                  cy="160"
-                  r="150"
-                  fill="none"
-                  stroke={
-                    mode === "focus"
-                      ? "#3b82f6"
-                      : mode === "short-break"
-                      ? "#10b981"
-                      : "#a855f7"
-                  }
-                  strokeWidth="8"
-                  strokeDasharray={`${2 * Math.PI * 150}`}
-                  strokeDashoffset={`${
-                    2 * Math.PI * 150 * (1 - progress / 100)
-                  }`}
-                  strokeLinecap="round"
-                  style={{ transition: "stroke-dashoffset 1s linear" }}
-                />
-              </svg>
+            <div className="mb-12">
+              {/* Progress indicator */}
+              <div className="mb-8 flex justify-center">
+                <div className="relative w-80 h-80 rounded-full bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl">
+                  {/* Progress ring */}
+                  <svg
+                    className="absolute inset-0 w-full h-full"
+                    style={{ transform: "rotate(-90deg)" }}
+                  >
+                    <circle
+                      cx="160"
+                      cy="160"
+                      r="150"
+                      fill="none"
+                      stroke="rgba(255,255,255,0.1)"
+                      strokeWidth="8"
+                    />
+                    <circle
+                      cx="160"
+                      cy="160"
+                      r="150"
+                      fill="none"
+                      stroke={
+                        mode === "focus"
+                          ? "#3b82f6"
+                          : mode === "short-break"
+                          ? "#10b981"
+                          : "#a855f7"
+                      }
+                      strokeWidth="8"
+                      strokeDasharray={`${2 * Math.PI * 150}`}
+                      strokeDashoffset={`${
+                        2 * Math.PI * 150 * (1 - progress / 100)
+                      }`}
+                      strokeLinecap="round"
+                      style={{ transition: "stroke-dashoffset 1s linear" }}
+                    />
+                  </svg>
 
-              {/* Timer text */}
-              <div className="text-center z-10">
-                <div className="text-8xl font-black font-mono tracking-tighter mb-2 bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
-                  {formatTime(timeLeft)}
-                </div>
-                <div
-                  className={`text-lg font-bold uppercase tracking-widest ${
-                    getModeColor(mode).text
-                  }`}
-                >
-                  {getModeLabel(mode)}
+                  {/* Timer text */}
+                  <div className="text-center z-10">
+                    <div className="text-8xl font-black font-mono tracking-tighter mb-2 bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
+                      {formatTime(timeLeft)}
+                    </div>
+                    <div
+                      className={`text-lg font-bold uppercase tracking-widest ${
+                        getModeColor(mode).text
+                      }`}
+                    >
+                      {getModeLabel(mode)}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {isComplete && (
-          <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 border border-emerald-500/50 backdrop-blur-sm">
-            <p className="text-emerald-300 text-center font-bold text-lg">
-              Time's up! Great work!
-            </p>
-          </div>
-        )}
+            {isComplete && (
+              <div className="mb-8 p-6 rounded-2xl bg-gradient-to-r from-emerald-500/20 to-emerald-600/20 border border-emerald-500/50 backdrop-blur-sm">
+                <p className="text-emerald-300 text-center font-bold text-lg">
+                  Time's up! Great work!
+                </p>
+              </div>
+            )}
 
-        <div className="flex gap-4 mb-8 justify-center flex-wrap">
-          <button
-            onClick={handleStart}
-            disabled={isRunning}
-            className="px-8 py-4 rounded-full font-bold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-white/20 disabled:to-white/20 disabled:cursor-not-allowed transition-all duration-200 text-sm uppercase tracking-wider shadow-lg hover:shadow-xl disabled:shadow-none"
-          >
-            Start
-          </button>
-          <button
-            onClick={handlePause}
-            disabled={!isRunning}
-            className="px-8 py-4 rounded-full font-bold text-white bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:from-white/20 disabled:to-white/20 disabled:cursor-not-allowed transition-all duration-200 text-sm uppercase tracking-wider shadow-lg hover:shadow-xl disabled:shadow-none"
-          >
-            Pause
-          </button>
-          <button
-            onClick={handleReset}
-            className="px-8 py-4 rounded-full font-bold text-white bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 transition-all duration-200 text-sm uppercase tracking-wider shadow-lg hover:shadow-xl"
-          >
-            Reset
-          </button>
+            <div className="flex gap-4 mb-8 justify-center flex-wrap">
+              <button
+                onClick={handleStart}
+                disabled={isRunning}
+                className="px-8 py-4 rounded-full font-bold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-white/20 disabled:to-white/20 disabled:cursor-not-allowed transition-all duration-200 text-sm uppercase tracking-wider shadow-lg hover:shadow-xl disabled:shadow-none"
+              >
+                Start
+              </button>
+              <button
+                onClick={handlePause}
+                disabled={!isRunning}
+                className="px-8 py-4 rounded-full font-bold text-white bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-500 hover:to-orange-600 disabled:from-white/20 disabled:to-white/20 disabled:cursor-not-allowed transition-all duration-200 text-sm uppercase tracking-wider shadow-lg hover:shadow-xl disabled:shadow-none"
+              >
+                Pause
+              </button>
+              <button
+                onClick={handleReset}
+                className="px-8 py-4 rounded-full font-bold text-white bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 transition-all duration-200 text-sm uppercase tracking-wider shadow-lg hover:shadow-xl"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+
+          {/* Daily Tasks Section */}
+          <div className="lg:col-span-1">
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md border border-white/20 shadow-2xl h-full">
+              <h2 className="text-white font-bold mb-6 text-center text-lg uppercase tracking-wider">
+                Daily Goals
+              </h2>
+              <div className="space-y-4 mb-6">
+                {dailyTasks.map((task) => {
+                  const progressPercent = Math.min(
+                    (task.completedMinutes / task.targetMinutes) * 100,
+                    100
+                  );
+                  const isSelected = selectedTaskId === task.id;
+
+                  return (
+                    <button
+                      key={task.id}
+                      onClick={() => setSelectedTaskId(task.id)}
+                      className={`w-full p-4 rounded-lg transition-all duration-200 text-left ${
+                        isSelected
+                          ? "bg-gradient-to-r from-blue-600/30 to-purple-600/30 border border-blue-500/50"
+                          : "bg-white/5 border border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-semibold text-sm uppercase tracking-wider">
+                          {task.name}
+                        </span>
+                        <span className="text-xs text-white/60">
+                          {task.completedMinutes}/{task.targetMinutes}m
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+                          style={{ width: `${progressPercent}%` }}
+                        ></div>
+                      </div>
+                      <div className="text-xs text-white/50 mt-2">
+                        {formatMinutes(task.completedMinutes)} completed
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={handleResetDailyTasks}
+                className="w-full px-4 py-2 rounded-lg font-semibold text-sm text-white/80 bg-white/10 hover:bg-white/20 transition-all duration-200 uppercase tracking-wider border border-white/20"
+              >
+                Reset Tasks
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-center mb-8">
